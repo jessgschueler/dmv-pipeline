@@ -1,4 +1,39 @@
 import json
+import re
+
+def transform_address(row:dict) -> bool:
+    """
+    Parses the address into street_address, city, state, zip fields. Invalid address cause a ValueError exception.
+
+    Args:
+        row (dict): data row
+
+    Returns:
+        bool: True if address is in valid US address format; otherwise False
+
+    Raises:
+        ValueError: Unknown address format.
+    """
+    # regular expression (regex) to match a US address composed of street_address, city, state, zip
+    # this regex uses Named Capturing Group feature of regex to assign a name to a matching portion of the string
+    # the syntax is (?<group_name>...) where ... contains the matching regex for this group
+    address_regex = r"(?P<street_address>[a-zA-Z0-9 .]+)\n(?P<city>[a-zA-Z0-9 ]+), (?P<state>[A-Z]{2}) (?P<zip>[0-9]{5})"
+    pattern = re.compile(address_regex)
+    # match address using regex
+    result = pattern.match(row["registered_address"])
+    if result:
+        # if a possible match found. assign fields based on regex matching named groups
+        row["street_address"] = result.group("street_address")
+        row["city"] = result.group("city")
+        row["state"] = result.group("state")
+        row["zip"] = result.group("zip")
+        # delete the original address field
+        del row["registered_address"]
+        return True
+    else:
+        address = row["registered_address"].strip().replace("\n", ", ")
+        raise ValueError(f"Unknown address format: {address}")
+
 #required fields
 VALID_FIELDS = ["license_plate", "make_model", "year", "registered_name", "registered_address", "registered_date"]
 
@@ -62,6 +97,7 @@ def run(file_name:str, print_lines:bool=False) -> None:
                 #transformations
                 check_schema(row)
                 null_check(row)
+                transform_address(row)
                 # Print lines
                 if print_lines:
                     print(f"[{line_num:04d} [OK]: {row}")
